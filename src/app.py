@@ -1,6 +1,6 @@
 """
 DevSecOps Demo - App simple en Python
-Vulnerabilidad corregida: SQL Injection eliminado.
+Contiene una vulnerabilidad intencional de SQL Injection.
 """
 
 import sqlite3
@@ -8,8 +8,20 @@ import sqlite3
 
 def get_user(username: str):
     """
+    VULNERABLE: SQL Injection por concatenacion de strings.
+    Semgrep con p/bandit deberia detectar esto.
+    """
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    # MAL: nunca concatenes input del usuario en SQL
+    query = f"SELECT * FROM users WHERE username = '{username}'"
+    cursor.execute(query)
+    return cursor.fetchone()
+
+
+def get_user_safe(username: str):
+    """
     Version segura usando parametros preparados.
-    Ya no hay SQL injection.
     """
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
