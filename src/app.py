@@ -1,6 +1,6 @@
 """
 DevSecOps Demo - App simple en Python
-Esta app tiene una vulnerabilidad intencional para que el pipeline la detecte.
+Vulnerabilidad corregida: SQL Injection eliminado.
 """
 
 import sqlite3
@@ -8,20 +8,8 @@ import sqlite3
 
 def get_user(username: str):
     """
-    VULNERABILIDAD INTENCIONAL: SQL Injection.
-    Semgrep (SAST) va a detectar esto en el pipeline.
-    """
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    # MAL: nunca concatenes input del usuario en SQL
-    query = f"SELECT * FROM users WHERE username = '{username}'"
-    cursor.execute(query)
-    return cursor.fetchone()
-
-
-def get_user_safe(username: str):
-    """
     Version segura usando parametros preparados.
+    Ya no hay SQL injection.
     """
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
