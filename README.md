@@ -1,5 +1,7 @@
 # DevSecOps Demo — Python
 
+![Pipeline DevSecOps](https://github.com/duvantf/devsecops-demo/actions/workflows/security.yml/badge.svg)
+
 Proyecto práctico de aprendizaje DevSecOps construido desde cero.
 Cada `git push` dispara un pipeline de seguridad automatizado en GitHub Actions.
 
@@ -32,17 +34,13 @@ Los tres pasos de seguridad completados exitosamente.
 > "Seguridad automatizada en cada paso del ciclo de desarrollo,
 > sin frenar al equipo."
 
-En vez de revisar seguridad al final (o nunca), el pipeline la integra
-desde el primer commit. El desarrollador recibe el reporte en minutos,
-no semanas después.
-
 ### El ciclo que vivimos
 ```
 git push
    ↓
 Pipeline se dispara automáticamente
    ↓
-SAST  →  SCA  →  Docker  →  Resumen
+Secrets → Tests → SAST → SCA → Docker → Resumen
    ↓
 Reporte: qué está mal, en qué archivo, en qué línea
    ↓
@@ -61,9 +59,8 @@ query = f"SELECT * FROM users WHERE username = '{username}'"
 cursor.execute(query)
 ```
 
-Un atacante puede escribir `' OR '1'='1` como username y obtener
-todos los registros de la base de datos. Semgrep lo detectó en la
-línea 18 con la regla `python.lang.security.audit.formatted-sql-query`.
+Semgrep lo detectó en la línea 18 con la regla
+`python.lang.security.audit.formatted-sql-query`.
 
 ```python
 # BIEN: parametros preparados
@@ -77,7 +74,6 @@ Pillow==9.3.0  ← tiene CVEs conocidos
 ```
 
 pip-audit la detecta comparando contra bases de datos de CVEs públicos.
-La corrección es actualizar a una versión sin vulnerabilidades conocidas.
 
 ### Lección importante que descubrimos
 La primera versión del pipeline con Semgrep **no detectó** el SQL injection.
@@ -91,12 +87,13 @@ lo encontrara. Esto refleja la realidad de DevSecOps:
 
 ## El pipeline — qué hace cada paso
 
-| Paso | Herramienta | Qué detecta | Tiempo |
-|------|-------------|-------------|--------|
-| SAST | Semgrep | Vulnerabilidades en el código fuente | ~23s |
-| SCA  | pip-audit | Dependencias con CVEs conocidos | ~23s |
-| Docker | Trivy | Vulnerabilidades en la imagen del contenedor | ~2min |
-| Resumen | GitHub Actions | Estado global del pipeline | ~2s |
+| Paso | Herramienta | Qué detecta | Bloquea |
+|------|-------------|-------------|---------|
+| Secrets | Gitleaks | Contraseñas y API keys en el código | Sí |
+| Tests | pytest | Funcionalidad rota y cobertura < 50% | Sí |
+| SAST | Semgrep | Vulnerabilidades en el código fuente | No |
+| SCA | pip-audit | Dependencias con CVEs conocidos | No |
+| Docker | Trivy | Vulnerabilidades CRÍTICAS en la imagen | Sí |
 
 ---
 
@@ -109,8 +106,11 @@ devsecops-demo/
 ├── docs/                  ← evidencias del pipeline
 ├── src/
 │   └── app.py             ← app con vulnerabilidad intencional
+├── tests/
+│   └── test_app.py        ← tests de seguridad con pytest
+├── .gitleaks.toml         ← configuración de secrets scanning
 ├── Dockerfile
-├── requirements.txt       ← dependencia vulnerable intencional
+├── requirements.txt
 └── README.md
 ```
 
@@ -118,8 +118,8 @@ devsecops-demo/
 
 ## Ejercicio propuesto
 
-1. Corrige el SQL injection en `src/app.py` — usa solo `get_user_safe`
-2. Actualiza `Pillow==9.3.0` a `Pillow>=10.3.0` en `requirements.txt`
+1. Corrige el SQL injection en `src/app.py`
+2. Actualiza `Pillow==9.3.0` a `Pillow>=10.3.0`
 3. Haz push y verifica que el pipeline pase completamente limpio
 
 Ese es el ciclo DevSecOps: **detectar → corregir → validar → repetir.**

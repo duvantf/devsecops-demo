@@ -1,0 +1,22 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "hardcoded-password"
+description = "Detecta contrasenas hardcodeadas"
+regex = '''(?i)(password|passwd|pwd)\s*=\s*["\'][^"\']{4,}["\']'''
+tags = ["password", "secret"]
+
+[[rules]]
+id = "hardcoded-api-key"
+description = "Detecta API keys hardcodeadas"
+regex = '''(?i)(api_key|apikey|api-key)\s*=\s*["\'][^"\']{8,}["\']'''
+tags = ["api-key", "secret"]
+
+[allowlist]
+description = "Ignorar archivos de ejemplo y tests"
+paths = [
+    '''tests/.*''',
+    '''docs/.*''',
+    '''README\.md'''
+]

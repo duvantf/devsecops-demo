@@ -9,7 +9,52 @@ on:
 jobs:
 
   # ─────────────────────────────────────────
-  # PASO 1: SAST — análisis de código estático
+  # PASO 1: Secrets scanning con Gitleaks
+  # BLOQUEA el pipeline si encuentra secrets
+  # ─────────────────────────────────────────
+  secrets-scanning:
+    name: Secrets con Gitleaks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Escanear secrets con Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # ─────────────────────────────────────────
+  # PASO 2: Tests con pytest
+  # BLOQUEA si los tests fallan
+  # ─────────────────────────────────────────
+  tests:
+    name: Tests con pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Instalar dependencias
+        run: |
+          pip install pytest pytest-cov
+          pip install flask requests
+
+      - name: Correr tests con cobertura
+        run: |
+          pytest tests/ \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-fail-under=50 \
+            -v
+
+  # ─────────────────────────────────────────
+  # PASO 3: SAST con Semgrep
   # ─────────────────────────────────────────
   sast-semgrep:
     name: SAST con Semgrep
@@ -60,7 +105,7 @@ jobs:
           path: semgrep-report.json
 
   # ─────────────────────────────────────────
-  # PASO 2: SCA — dependencias vulnerables
+  # PASO 4: SCA con pip-audit
   # ─────────────────────────────────────────
   sca-dependencias:
     name: SCA con pip-audit
@@ -109,7 +154,8 @@ jobs:
           path: pip-audit-report.json
 
   # ─────────────────────────────────────────
-  # PASO 3: Seguridad en contenedor Docker
+  # PASO 5: Seguridad en contenedor Docker
+  # BLOQUEA si encuentra vulnerabilidades CRÍTICAS
   # ─────────────────────────────────────────
   scan-contenedor:
     name: Escaneo de imagen con Trivy
@@ -129,15 +175,15 @@ jobs:
           image-ref: devsecops-demo:latest
           format: table
           severity: CRITICAL,HIGH
-          exit-code: 0
+          exit-code: 1
 
   # ─────────────────────────────────────────
-  # PASO 4: Resumen final del pipeline
+  # PASO 6: Resumen final del pipeline
   # ─────────────────────────────────────────
   resumen:
     name: Resumen de seguridad
     runs-on: ubuntu-latest
-    needs: [sast-semgrep, sca-dependencias, scan-contenedor]
+    needs: [secrets-scanning, tests, sast-semgrep, sca-dependencias, scan-contenedor]
     if: always()
 
     steps:
@@ -146,8 +192,9 @@ jobs:
           echo "======================================"
           echo "   RESUMEN PIPELINE DEVSECOPS"
           echo "======================================"
-          echo "SAST (Semgrep):    ${{ needs.sast-semgrep.result }}"
-          echo "SCA (pip-audit):   ${{ needs.sca-dependencias.result }}"
-          echo "Docker (Trivy):    ${{ needs.scan-contenedor.result }}"
+          echo "Secrets (Gitleaks): ${{ needs.secrets-scanning.result }}"
+          echo "Tests (pytest):     ${{ needs.tests.result }}"
+          echo "SAST (Semgrep):     ${{ needs.sast-semgrep.result }}"
+          echo "SCA (pip-audit):    ${{ needs.sca-dependencias.result }}"
+          echo "Docker (Trivy):     ${{ needs.scan-contenedor.result }}"
           echo "======================================"
-          echo "Revisa los artefactos para ver los reportes completos."
