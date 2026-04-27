@@ -1,0 +1,10 @@
+# Dependencias del proyecto
+flask==2.0.1
+
+# DEPENDENCIA VULNERABLE INTENCIONAL:
+# Pillow 9.1.0 tiene CVE-2022-22817 (ejecucion de codigo arbitrario)
+# Snyk/Dependabot lo va a detectar en el pipeline.
+# La version segura es Pillow>=9.1.1
+Pillow==9.1.0
+
+requests==2.28.0

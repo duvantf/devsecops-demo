@@ -1,0 +1,152 @@
+name: Pipeline DevSecOps
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  # ─────────────────────────────────────────
+  # PASO 1: SAST — análisis de código estático
+  # ─────────────────────────────────────────
+  sast-semgrep:
+    name: SAST con Semgrep
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Instalar Semgrep
+        run: pip install semgrep
+
+      - name: Escanear código con Semgrep
+        run: |
+          semgrep \
+            --config=p/python \
+            --config=p/owasp-top-ten \
+            --config=p/sql-injection \
+            --error \
+            --json \
+            --output=semgrep-report.json \
+            src/ || true
+
+      - name: Mostrar reporte SAST
+        run: |
+          if [ -f semgrep-report.json ]; then
+            echo "=== Resultados Semgrep ==="
+            cat semgrep-report.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          results = data.get('results', [])
+          if not results:
+              print('Sin vulnerabilidades detectadas.')
+          for r in results:
+              print(f\"[{r['extra']['severity']}] {r['check_id']}\")
+              print(f\"  Archivo: {r['path']}:{r['start']['line']}\")
+              print(f\"  Mensaje: {r['extra']['message']}\")
+              print()
+            "
+          fi
+
+      - name: Subir reporte como artefacto
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+
+  # ─────────────────────────────────────────
+  # PASO 2: SCA — dependencias vulnerables
+  # ─────────────────────────────────────────
+  sca-dependencias:
+    name: SCA con pip-audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Instalar pip-audit
+        run: pip install pip-audit
+
+      - name: Escanear dependencias
+        run: |
+          pip-audit \
+            -r requirements.txt \
+            --format json \
+            --output pip-audit-report.json || true
+
+      - name: Mostrar vulnerabilidades encontradas
+        run: |
+          if [ -f pip-audit-report.json ]; then
+            echo "=== Dependencias vulnerables ==="
+            cat pip-audit-report.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          vulns = data.get('dependencies', [])
+          found = False
+          for dep in vulns:
+              for v in dep.get('vulns', []):
+                  found = True
+                  print(f\"[VULNERABLE] {dep['name']}=={dep['version']}\")
+                  print(f\"  CVE: {v['id']}\")
+                  print(f\"  Fix: actualizar a {v.get('fix_versions', ['?'])}\")
+                  print()
+          if not found:
+              print('Sin dependencias vulnerables.')
+            "
+          fi
+
+      - name: Subir reporte como artefacto
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
+
+  # ─────────────────────────────────────────
+  # PASO 3: Seguridad en contenedor Docker
+  # ─────────────────────────────────────────
+  scan-contenedor:
+    name: Escaneo de imagen con Trivy
+    runs-on: ubuntu-latest
+    needs: [sast-semgrep, sca-dependencias]
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Construir imagen Docker
+        run: docker build -t devsecops-demo:latest .
+
+      - name: Escanear imagen con Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: devsecops-demo:latest
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: 0
+
+  # ─────────────────────────────────────────
+  # PASO 4: Resumen final del pipeline
+  # ─────────────────────────────────────────
+  resumen:
+    name: Resumen de seguridad
+    runs-on: ubuntu-latest
+    needs: [sast-semgrep, sca-dependencias, scan-contenedor]
+    if: always()
+
+    steps:
+      - name: Mostrar estado del pipeline
+        run: |
+          echo "======================================"
+          echo "   RESUMEN PIPELINE DEVSECOPS"
+          echo "======================================"
+          echo "SAST (Semgrep):    ${{ needs.sast-semgrep.result }}"
+          echo "SCA (pip-audit):   ${{ needs.sca-dependencias.result }}"
+          echo "Docker (Trivy):    ${{ needs.scan-contenedor.result }}"
+          echo "======================================"
+          echo "Revisa los artefactos para ver los reportes completos."
