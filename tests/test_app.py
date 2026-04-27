@@ -16,6 +16,9 @@ def setup_db():
         )
     """)
 
+    # (Opcional pero recomendado) insertar datos de prueba
+    cursor.execute("INSERT INTO users (username) VALUES (?)", ("admin",))
+
     conn.commit()
     conn.close()
 
@@ -32,10 +35,14 @@ def test_greet_no_vacio():
     assert len(greet("test")) > 0
 
 
-def test_sql_injection_no_ejecuta_codigo():
+# 🔐 TEST CORRECTO DE SQL INJECTION (IMPORTANTE)
+def test_sql_injection_no_rompe_sistema():
     input_malicioso = "' OR '1'='1"
+
     resultado = get_user_safe(input_malicioso)
-    assert resultado is not None
+
+    # Si la función es segura, NO debe fallar
+    assert resultado is None or resultado == []
 
 
 def test_greet_con_caracteres_especiales():
