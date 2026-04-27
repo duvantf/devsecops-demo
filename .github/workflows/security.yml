@@ -28,6 +28,7 @@ jobs:
             --config=p/python \
             --config=p/owasp-top-ten \
             --config=p/sql-injection \
+            --config=p/bandit \
             --error \
             --json \
             --output=semgrep-report.json \
