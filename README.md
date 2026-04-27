@@ -5,9 +5,30 @@ Cada `git push` dispara un pipeline de seguridad automatizado en GitHub Actions.
 
 ---
 
+## Evidencias del pipeline funcionando
+
+### 1. Historial completo de runs
+Cada commit disparó el pipeline automáticamente. Se ve la evolución del proyecto:
+desde el primer intento fallido hasta todos los pasos en verde.
+
+![Historial pipeline](docs/01-historial-pipeline.png)
+
+### 2. Semgrep detectando SQL Injection
+El análisis SAST encontró la vulnerabilidad en `src/app.py` línea 18.
+Regla activada: `python.lang.security.audit.formatted-sql-query`
+
+![SAST Semgrep](docs/02-semgrep-sql-injection.png)
+
+### 3. Resumen final del pipeline
+Los tres pasos de seguridad completados exitosamente.
+
+![Resumen pipeline](docs/03-resumen-pipeline.png)
+
+---
+
 ## Qué aprendimos construyendo este proyecto
 
-### 1. DevSecOps en una frase
+### DevSecOps en una frase
 > "Seguridad automatizada en cada paso del ciclo de desarrollo,
 > sin frenar al equipo."
 
@@ -15,7 +36,7 @@ En vez de revisar seguridad al final (o nunca), el pipeline la integra
 desde el primer commit. El desarrollador recibe el reporte en minutos,
 no semanas después.
 
-### 2. El ciclo que vivimos
+### El ciclo que vivimos
 ```
 git push
    ↓
@@ -30,7 +51,7 @@ Desarrollador corrige
 git push → pipeline corre de nuevo → pasa limpio
 ```
 
-### 3. Las vulnerabilidades que pusimos a propósito
+### Las vulnerabilidades que pusimos a propósito
 
 **Vulnerabilidad 1 — SQL Injection en `src/app.py`**
 
@@ -42,7 +63,7 @@ cursor.execute(query)
 
 Un atacante puede escribir `' OR '1'='1` como username y obtener
 todos los registros de la base de datos. Semgrep lo detectó en la
-línea 18 con esta regla: `python.lang.security.audit.formatted-sql-query`
+línea 18 con la regla `python.lang.security.audit.formatted-sql-query`.
 
 ```python
 # BIEN: parametros preparados
@@ -58,7 +79,7 @@ Pillow==9.3.0  ← tiene CVEs conocidos
 pip-audit la detecta comparando contra bases de datos de CVEs públicos.
 La corrección es actualizar a una versión sin vulnerabilidades conocidas.
 
-### 4. Lección importante que descubrimos
+### Lección importante que descubrimos
 La primera versión del pipeline con Semgrep **no detectó** el SQL injection.
 Tuvimos que agregar la regla `p/bandit` (específica para Python) para que
 lo encontrara. Esto refleja la realidad de DevSecOps:
@@ -79,35 +100,13 @@ lo encontrara. Esto refleja la realidad de DevSecOps:
 
 ---
 
-## Cómo usarlo
-
-### Clonar y configurar
-```bash
-git clone https://github.com/duvantf/devsecops-demo.git
-cd devsecops-demo
-```
-
-### Hacer un cambio y ver el pipeline
-```bash
-git add .
-git commit -m "descripcion del cambio"
-git push origin main
-```
-
-Luego ve a **GitHub → Actions → Pipeline DevSecOps** y observa cada paso.
-
-### Ver los reportes detallados
-- Haz clic en **"SAST con Semgrep"** → expande **"Mostrar reporte SAST"**
-- Descarga los **Artifacts** al final de la página del pipeline
-
----
-
 ## Estructura del proyecto
 ```
 devsecops-demo/
 ├── .github/
 │   └── workflows/
 │       └── security.yml   ← pipeline principal
+├── docs/                  ← evidencias del pipeline
 ├── src/
 │   └── app.py             ← app con vulnerabilidad intencional
 ├── Dockerfile
